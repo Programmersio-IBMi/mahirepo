@@ -1,0 +1,96 @@
+  Ctl-Opt Option(*SrcStmt:*NoDebugIo) BndDir('QC2LE':'WEB');
+  Ctl-Opt DftActGrp(*no);                                    
+                                                             
+  exec sql                                                  
+   set option commit=*none;                                  
+                                                             
+  Dcl-F PF1;                                             
+  Dcl-Pr WriteToWeb ExtProc('QtmhWrStout');                  
+    Datavar     Char(65535)  Options(*varsize);              
+    DatavarLen  Int(10)      Const;                          
+    ErrCode   Char(8000)     Options(*varsize);                
+  End-pr;                                                    
+                                                             
+  Dcl-Pr GetEnv Pointer ExtProc('getenv');                   
+    *N  Pointer  Value Options(*string);                     
+  End-Pr;                                                    
+                                                             
+  /Copy Qsysinc/QRpglesrc,Qusec                              
+                                                             
+  Dcl-Pr  ReadStdInput  ExtProc('QtmhRdStin');   
+    szRtnBuffer   Char(65535)  Options(*varsize);
+    nBufLen       Int(10)      Const;            
+    nRtnLen       Int(10);                       
+    QUSEC                      Like(QUSEC);      
+  End-Pr;                                        
+  Dcl-Ds ErrDs  Qualified;                       
+    BytesProv   Int(10)  Inz(0);                 
+    BytesAvail  Int(10)  Inz(0);                 
+  End-Ds;                                        
+
+  Dcl-Ds ApiError   LikeDs(QUSEC) Inz;  
+                                        
+  Dcl-S  Data  Char(5000);              
+  Dcl-C  CRLF  x'0d25';                 
+                                        
+  Dcl-S Url          Char(100);         
+  Dcl-S ContentType  Char(100);         
+  Dcl-S ReqMethod    Char(20);          
+                                        
+
+  Dcl-S RtnBuffer    Char(4096) Inz;    
+  Dcl-S RtnLen       Int(10);           
+                                        
+  Dcl-S EBCData      Char(32766) Inz;   
+                                        
+  Dcl-S Parm         Char(100);         
+  Dcl-S str1         Char(13);          
+  Dcl-S str          packed(3);         
+  Dcl-S Pos          packed(4);         
+  Dcl-S Pos1         packed(4);         
+
+  Dcl-S Id        packed(3);                   
+                                                 
+ Data = 'Content-type: text/html' + CRLF + CRLF;
+ WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);      
+                                                 
+ Data = '<h1>Testing Post method</h1>';                
+ WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);      
+                                                 
+ Url = %Str(GetEnv('REQUEST_URI'));              
+ ReqMethod = %Str(GetEnv('REQUEST_METHOD'));     
+
+  If ReqMethod = 'POST';                                          
+    ContentType = %Str(GetEnv('CONTENT_TYPE'));                   
+    ReadStdInput(RtnBuffer: %size(RtnBuffer): RtnLen: apiError);  
+    Data = 'Data:' + %Trim(RtnBuffer) + CRLF;                     
+    pos1 = %scan(',':%Trim(RtnBuffer));                           
+    if pos1 <> 0;                                                 
+       str =%int(%subst(%Trim(RtnBuffer):1:pos1-1));              
+       str1 = %subst(%Trim(RtnBuffer):pos1+1);                    
+       exec sql                                                   
+          insert into PF1(id,name) values(:str,:str1);    
+    endif;                                                 
+    if sqlcode = 0;                                          
+      Data = 'Data:' + 'Success' + CRLF;                    
+      WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);            
+    endif;                                                   
+ endif;                                                    
+ Parm = '/POSTPATH/';                                      
+ Pos = %Scan(%Trim(Parm):Url) + %Len(%Trim(Parm));        
+                                                            
+
+                                                                       
+ Id = %Int(%SubSt(Url:pos:3));                                 
+ if ReqMethod = 'GET';                                            
+  Chain Id PF1;                                             
+  If %Found();                                                     
+    Data = '<EmployeeId>' + %Char(Id) + '</EmployeeId>' +  CRLF +  
+         '<EmployeeName>' + name +'</EmployeeName >' + CRLF;       
+                                                                   
+    WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);                     
+                                                                   
+  Endif;                                                           
+ endif;      
+ *Inlr = *On;
+ Return;     
