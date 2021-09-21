@@ -1,0 +1,40 @@
+
+ H                                                             
+ Fpf2   IF   E           k DISK                            
+ dgetenv           pr              *   extproc('getenv')       
+ d var                             *   value options(*string)  
+ D                                                             
+ DWritetoweb       pr                  ExtProc('QtmhWrStout')  
+ DDatavar                     65535a   Options(*Varsize)       
+ DDatavarlen                     10I 0 Const                   
+ DErrorcode                    8000a   Options(*Varsize)       
+                                                               
+ DErrds            ds                  Qualified               
+ DBytesProv                      10I 0 Inz(0)                  
+ DBytesAvail                     10I 0 Inz(0)                  
+                                                               
+ DCRLF             C                   x'0d25'                 
+ DData             s           5000a                           
+ DData1            s           5000a                           
+ Durl              s            100a                           
+ DPARM             s            100a                           
+
+ DID               s              3S 0                         
+ DPos              s             10I 0                         
+ C                                                             
+      Data = 'Content-type: Text/Html' + CRLF +CRLF;          
+      url  = %str(getenv('REQUEST_URI'));                     
+      Parm ='/WEBGET/';                                      
+      pos = %scan(%trim(parm):%trim(url)) + %len(%trim(parm));
+      ID = %INT(%SUBST(url:pos:10));                         
+                                                              
+      chain ID pf2;                                      
+      if %found;                                              
+         data1 = 'Address: ' +  address;                                       
+      else;                                                   
+         data1 = 'Not Found';                                 
+      endif;                                                  
+      Data = %trimr(data) + %trim(data1);                     
+      Writetoweb(DATA: %len(%trim(data)): Errds);             
+      *inlr = *on;                                            
+      Return;                                                 
