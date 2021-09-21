@@ -1,0 +1,28 @@
+d command         s            200a                                     
+d response        s           4096a    inz                              
+d url             s            200a                                     
+d pos             s              5p 0 inz                               
+                                                                        
+      url = 'https://data.fixer.io/api/latest';                         
+      pos = %scan(' ':url);                                             
+      if pos > 0;                                                       
+        url = %trim(%subst(url:1:pos-1));                               
+      endif;                                                            
+      EXEC SQL                                                          
+        SET OPTION COMMIT = *NONE;                                      
+        exec sql call QSYS2.QCMDEXC('CHGJOB CCSID(37)');                
+      EXEC SQL                                                          
+        CREATE TABLE QTEMP/RESPONSE  (DATA VARCHAR(4096));              
+      EXEC SQL                                                          
+        DECLARE C1 CURSOR FOR                                           
+        SELECT DATA FROM(VALUES CHAR(SYSTOOLS.HTTPGETCLOB(:URL,''),4096)
+        ) xy(DATA);  
+      EXEC SQL                                       
+        OPEN C1;                                    
+     EXEC SQL                                       
+        FETCH C1 INTO :RESPONSE;                    
+     EXEC SQL                                       
+       INSERT into qtemp/RESPONSE values(:RESPONSE);
+     exec sql                                       
+       close c1;                                   
+     *inlr = *on;
